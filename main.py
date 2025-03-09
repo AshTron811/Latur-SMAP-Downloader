@@ -4,20 +4,22 @@ import requests
 import os
 import zipfile
 import io
+import json
 
 # Set up the page configuration
 st.set_page_config(page_title="Latur SMAP Downloader", layout="wide")
 st.title("Latur SMAP Downloader")
 
-# Authenticate using service account credentials from Streamlit secrets
-service_account = st.secrets["earthengine"]["service_account"]
-private_key = st.secrets["earthengine"]["private_key"]
-
-credentials = ee.ServiceAccountCredentials(service_account, key_data=private_key)
+# Initialize Earth Engine using service account credentials from secrets
+# The secrets should be stored under [ee_credentials] with a key "json"
+secret_json = st.secrets["ee_credentials"]["json"]
+credentials_dict = json.loads(secret_json)
+service_account = credentials_dict["client_email"]
+credentials = ee.ServiceAccountCredentials(service_account, key_data=secret_json)
 ee.Initialize(credentials, project="ee-ashutosh10615")
 st.success("Earth Engine Initialized using service account credentials.")
 
-# User inputs
+# User inputs for date range and band choice
 start_date = st.text_input("Enter start date (YYYY-MM-DD):", "2025-01-01")
 end_date = st.text_input("Enter end date (YYYY-MM-DD):", "2025-01-03")
 band_choice = st.selectbox("Select SMAP band(s):", ["surface", "rootzone", "both"])
