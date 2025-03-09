@@ -5,18 +5,27 @@ import os
 import zipfile
 import io
 import json
+import tempfile
 
 # Set up the page configuration
 st.set_page_config(page_title="Latur SMAP Downloader", layout="wide")
 st.title("Latur SMAP Downloader")
 
-# Initialize Earth Engine using service account credentials from secrets
-# The secrets should be stored under [ee_credentials] with a key "json"
+# Read the JSON key from Streamlit secrets
 secret_json = st.secrets["ee_credentials"]["json"]
 credentials_dict = json.loads(secret_json)
 service_account = credentials_dict["client_email"]
-credentials = ee.ServiceAccountCredentials(service_account, key_data=secret_json)
+
+# Create a temporary JSON key file and write the secret JSON to it
+with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=".json") as temp_file:
+    temp_file.write(secret_json)
+    temp_file_path = temp_file.name
+
+# Initialize Earth Engine using the temporary key file
+credentials = ee.ServiceAccountCredentials(service_account, temp_file_path)
 ee.Initialize(credentials, project="ee-ashutosh10615")
+# Remove the temporary file after initialization
+os.remove(temp_file_path)
 st.success("Earth Engine Initialized using service account credentials.")
 
 # User inputs for date range and band choice
