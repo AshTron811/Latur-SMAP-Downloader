@@ -9,15 +9,15 @@ import io
 st.set_page_config(page_title="Latur SMAP Downloader", layout="wide")
 st.title("Latur SMAP Downloader")
 
-# Initialize Earth Engine
-try:
-    ee.Initialize(project="ee-ashutosh10615")
-except Exception:
-    ee.Authenticate()
-    ee.Initialize(project="ee-ashutosh10615")
-st.success("Earth Engine Initialized")
+# Authenticate using service account credentials from Streamlit secrets
+service_account = st.secrets["earthengine"]["service_account"]
+private_key = st.secrets["earthengine"]["private_key"]
 
-# User inputs for date range and band choice
+credentials = ee.ServiceAccountCredentials(service_account, key_data=private_key)
+ee.Initialize(credentials, project="ee-ashutosh10615")
+st.success("Earth Engine Initialized using service account credentials.")
+
+# User inputs
 start_date = st.text_input("Enter start date (YYYY-MM-DD):", "2025-01-01")
 end_date = st.text_input("Enter end date (YYYY-MM-DD):", "2025-01-03")
 band_choice = st.selectbox("Select SMAP band(s):", ["surface", "rootzone", "both"])
@@ -86,7 +86,7 @@ if st.button("Download SMAP Data"):
             progress_bar.progress((i + 1) / collection_size)
         st.success("Download complete!")
 
-        # Zip all the downloaded files for local download
+        # Zip all downloaded files for local download
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w") as zip_file:
             for file in os.listdir(folder_name):
