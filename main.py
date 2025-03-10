@@ -49,6 +49,9 @@ if st.button("Download SMAP Data"):
         ee.Filter.eq("ADM2_NAME", "Latur")
     )).first())
     latur_geometry = latur_feature.geometry()
+    
+    # Instead of clipping exactly to Latur's shape, add a buffer (e.g., 5000 meters)
+    extended_geometry = latur_geometry.buffer(5000)
 
     # Retrieve SMAP data for the specified date range
     smap_collection = ee.ImageCollection("NASA/SMAP/SPL4SMGP/007").filterDate(start_date, end_date)
@@ -76,13 +79,13 @@ if st.button("Download SMAP Data"):
                 st.error("Invalid band selection. Please try again.")
                 break
 
-            # Clip the image to the Latur boundary
-            clipped_image = selected_image.clip(latur_geometry)
+            # Instead of clipping to the exact Latur boundary, clip to the extended geometry
+            clipped_image = selected_image.clip(extended_geometry)
 
-            # Define download parameters for the GeoTIFF
+            # Define download parameters for the GeoTIFF using the extended geometry region
             download_params = {
                 'scale': 1000,
-                'region': latur_geometry.getInfo()['coordinates'],
+                'region': extended_geometry.getInfo()['coordinates'],
                 'crs': 'EPSG:4326',
                 'fileFormat': 'GeoTIFF'
             }
