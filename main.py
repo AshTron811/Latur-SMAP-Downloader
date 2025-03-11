@@ -6,6 +6,7 @@ import zipfile
 import io
 import json
 import tempfile
+import geopandas as gpd
 
 # Set up the page configuration
 st.set_page_config(page_title="Latur SMAP Downloader", layout="wide")
@@ -36,22 +37,41 @@ band_choice = st.selectbox("Select SMAP band(s):", ["surface", "rootzone", "both
 # Fixed folder name "data"
 folder_name = "data"
 
+# Extract extent from EXTENT.zip
+extent_shp = None
+zip_file_path = "EXTENT.zip"
+
+if os.path.exists(zip_file_path):
+    with zipfile.ZipFile(zip_file_path, "r") as zip_ref:
+        zip_ref.extractall("EXTENT")
+    
+    # Find the shapefile inside the extracted folder
+    for file in os.listdir("EXTENT"):
+        if file.endswith(".shp"):
+            extent_shp = os.path.join("EXTENT", file)
+            break
+else:
+    st.error(f"Could not find {zip_file_path}. Please ensure it is placed in the working directory.")
+
+# Load shapefile and convert to Earth Engine geometry
+if extent_shp:
+    gdf = gpd.read_file(extent_shp)
+    if not gdf.empty:
+        latur_geometry = ee.Geometry.Polygon(gdf.geometry[0].exterior.coords)
+        st.success("Loaded Latur extent from EXTENT.zip.")
+    else:
+        st.error("Shapefile is empty. Please check EXTENT.zip.")
+else:
+    st.error("No shapefile found in EXTENT.zip.")
+
+# Add buffer to the extent (e.g., 5000 meters)
+extended_geometry = latur_geometry.buffer(5000)
+
 if st.button("Download SMAP Data"):
     # Create the folder if it doesn't exist
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
         st.info(f"Created folder: {folder_name}")
-
-    # Retrieve Latur boundary from FAO GAUL 2015 Level 2
-    gaul = ee.FeatureCollection("FAO/GAUL/2015/level2")
-    latur_feature = ee.Feature(gaul.filter(ee.Filter.And(
-        ee.Filter.eq("ADM0_NAME", "India"),
-        ee.Filter.eq("ADM2_NAME", "Latur")
-    )).first())
-    latur_geometry = latur_feature.geometry()
-    
-    # Instead of clipping exactly to Latur's shape, add a buffer (e.g., 5000 meters)
-    extended_geometry = latur_geometry.buffer(5000)
 
     # Retrieve SMAP data for the specified date range
     smap_collection = ee.ImageCollection("NASA/SMAP/SPL4SMGP/007").filterDate(start_date, end_date)
