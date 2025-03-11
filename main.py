@@ -53,19 +53,21 @@ if os.path.exists(zip_file_path):
 else:
     st.error(f"Could not find {zip_file_path}. Please ensure it is placed in the working directory.")
 
-# Load shapefile and convert to Earth Engine geometry
+# Load shapefile and convert to Earth Engine geometry using __geo_interface__
 if extent_shp:
     gdf = gpd.read_file(extent_shp)
     if not gdf.empty:
-        latur_geometry = ee.Geometry.Polygon(gdf.geometry[0].exterior.coords)
+        # Reproject to EPSG:4326 if necessary
+        if gdf.crs is not None:
+            gdf = gdf.to_crs("EPSG:4326")
+        # Convert the first geometry to a GeoJSON-like dict
+        poly_geojson = gdf.geometry.iloc[0].__geo_interface__
+        latur_geometry = ee.Geometry(poly_geojson)
         st.success("Loaded Latur extent from EXTENT.zip.")
     else:
         st.error("Shapefile is empty. Please check EXTENT.zip.")
 else:
     st.error("No shapefile found in EXTENT.zip.")
-
-# Add buffer to the extent (e.g., 5000 meters)
-extended_geometry = latur_geometry.buffer(5000)
 
 if st.button("Download SMAP Data"):
     # Create the folder if it doesn't exist
@@ -99,13 +101,13 @@ if st.button("Download SMAP Data"):
                 st.error("Invalid band selection. Please try again.")
                 break
 
-            # Instead of clipping to the exact Latur boundary, clip to the extended geometry
-            clipped_image = selected_image.clip(extended_geometry)
+            # Clip the image using the loaded Latur extent directly (no buffer)
+            clipped_image = selected_image.clip(latur_geometry)
 
-            # Define download parameters for the GeoTIFF using the extended geometry region
+            # Define download parameters for the GeoTIFF using the extent region
             download_params = {
                 'scale': 1000,
-                'region': extended_geometry.getInfo()['coordinates'],
+                'region': latur_geometry.getInfo()['coordinates'],
                 'crs': 'EPSG:4326',
                 'fileFormat': 'GeoTIFF'
             }
